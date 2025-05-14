@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>No Director's Task with jsPsych & JATOS</title>
+
+  <!-- External CSS -->
+  <link
+    href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css"
+    rel="stylesheet"
+    type="text/css"
+  />
+
+  <!-- Custom Styles -->
+  <style>
+    /* Body and background */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 100px;
+      background-image: url('https://vstradag.github.io/noDirectorsTask/assets/directorsRoom.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    /* jsPsych container */
+    .jspsych-content-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Instruction box */
+    .instruction-box {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      max-width: 800px;
+      line-height: 1.6;
+      position: relative;
+      z-index: 100;
+      margin-top: -50px;
+      text-align: left;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    .instruction-box p {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+    .instruction-box img {
+      height: 180px;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+
+    /* Timeline button */
+    .jspsych-btn {
+      background-color: #e0e0e0;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .jspsych-btn:hover {
+      background-color: #d0d0d0;
+    }
+
+    /* Button container for instruction boxes */
+    .button-container {
+      text-align: right;
+      margin-top: 20px;
+    }
+
+    /* Task container and grid */
+    .task-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .grid-container {
+      display: inline-block;
+      margin-right: 20px;
+      position: relative;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(4, 100px);
+      grid-template-rows: repeat(4, 100px);
+      grid-gap: 8px;
+      padding: 8px;
+      perspective: 800px;
+    }
+    .grid-container:before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg,
+        rgba(255,255,255,0.1) 0%,
+        rgba(255,255,255,0) 50%,
+        rgba(0,0,0,0.05) 100%
+      );
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Cells and walls */
+    .grid-cell {
+      position: relative;
+      background-color: rgba(150,150,150,0.3);
+      border: 1px solid rgba(150,150,150,0.5);
+      box-sizing: border-box;
+      overflow: visible;
+      transform: translateZ(0);
+    }
+    .grid-cell.blocked { background-color: rgba(120,120,120,1); }
+    .grid-cell:before, .grid-cell:after {
+      content: '';
+      position: absolute;
+      background-color: #888;
+      border: 1px solid black;
+    }
+    .grid-cell:before {
+      left: -9px; top: -7px;
+      width: 25px; height: 109%;
+      transform: skewY(-45deg);
+      transform-origin: top;
+      z-index: 1;
+    }
+    .grid-cell:after {
+      bottom: -15px; left: 6px;
+      width: 105%; height: 25px;
+      transform: skewX(-45deg);
+      transform-origin: left;
+      z-index: -1;
+    }
+    .top-wall {
+      position: absolute; top: -20px; left: -10px;
+      width: 109%; height: 25px;
+      background-color: #888;
+      border: 1px solid black;
+      transform: skewX(-45deg);
+      transform-origin: bottom;
+      z-index: 2;
+    }
+    .right-wall {
+      position: absolute; top: 6px; right: -29px;
+      width: 26px; height: 109%;
+      background-color: #888;
+      border: 1px solid black;
+      transform: skewY(-45deg);
+      transform-origin: left;
+      z-index: 0;
+    }
+    /* Row z-index ordering */
+    .grid-cell:nth-child(-n+4) { z-index: 40; }
+    .grid-cell:nth-child(n+5):nth-child(-n+8) { z-index: 30; }
+    .grid-cell:nth-child(n+9):nth-child(-n+12) { z-index: 20; }
+    .grid-cell:nth-child(n+13):nth-child(-n+16) { z-index: 10; }
+
+    /* Glyph images */
+    img.glyph-image {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 70px; max-height: 70px;
+      cursor: grab;
+      z-index: 10;
+    }
+
+    /* Director container and speech bubble */
+    .director-container {
+      position: absolute;
+      right: -300px; top: -280px;
+      width: 240px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 500;
+    }
+    #play-audio {
+      background: transparent; 
+      border: none;
+      cursor: pointer;
+      display: flex; 
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      margin-bottom: -70px;
+    }
+    #play-audio:hover { opacity: 0.8; }
+    #play-audio img {
+      width: 180px;
+      height: 180px;
+    }
+    .director-image {
+      width: 100%; 
+      height: 100%; 
+      object-fit: contain;
+    }
+
+    /* Screen transition overlay */
+    .transition-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: black;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+      z-index: 10000;
+    }
+    .transition-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* Flickering animation */
+    @keyframes flicker {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.1); }
+    }
+    .flicker-animation {
+      animation: flicker 0.4s ease-in-out 3;
+    }
+
+  </style>
+
+  <!-- External JS Libraries -->
+  <script src="https://unpkg.com/jspsych@7.3.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-preload@1.1.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.1"></script>
+
+  <!-- Custom Script -->
+  <script>
+    //=== Configuration & Constants ===
+    const baseUrl = 'https://vstradag.github.io/noDirectorsTask/';
+    const baseAssetUrl = 'https://vstradag.github.io/noDirectorsTask/assets/';
+    const conditionIndex = Math.floor(Math.random() * 6) + 1;
+    const spreadsheetsPath = 'https://vstradag.github.io/noDirectorsTask/spreadsheets/';;
+
+    //=== Utility Functions ===
+    function getGlyphImageUrl(glyphName) {
+      const cleanName = glyphName.split(',')[0].trim();
+      return `${baseAssetUrl}${encodeURIComponent(cleanName)}.png`;
+    }
+    function getAudioUrl(clueId) {
+      return `${baseAssetUrl}${encodeURIComponent(clueId)}.mp3`;
+    }
+    function getDirectorImageUrl() {
+      return `${baseAssetUrl}director.png`;
+    }
+
+    //=== Audio Initialization & Playback ===
+    let audioContext;
+    function initAudio() {
+      if (!audioContext) {
+        try {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          document.removeEventListener('click', initAudio);
+        } catch (e) {
+          console.error('Audio init failed:', e);
+        }
+      }
+    }
+    document.addEventListener('click', initAudio, false);
+
+    function playClueAudio(clueId) {
+      const audio = new Audio(getAudioUrl(clueId));
+      audio.addEventListener('error', () => console.error("Audio error for clue:", clueId));
+      const promise = audio.play();
+      if (promise) promise.catch(err => console.error("Audio play error:", err));
+    }
+    function playBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 440;
+        gain.gain.value = 0.5;
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+        setTimeout(() => ctx.close(), 600);
+      } catch (e) {
+        console.error('Beep failed:', e);
+      }
+    }
+
+    //=== Data Conversion Function ===
+    function convertRowToPuzzle(row) {
+      if (row.Instructions || !row.Soundfile) return null;
+      const grid = [];
+      for (let i = 1; i <= 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          const colLetter = String.fromCharCode(65 + j);
+          const cellId = `${i}${colLetter}`;
+          const oldCellId = `${colLetter}${i}`;
+          const content = row[oldCellId] || '';
+          const blocked = content.includes('blocked');
+          let glyph = '';
+          if (content && content !== 'blocked') {
+            glyph = blocked ? content.split(',')[0].trim() : content.trim();
+          }
+          grid.push({ cell: cellId, oldCell: oldCellId, glyph, blocked });
+        }
+      }
+      let newAnswer = '';
+      if (row.CorrectPlacement) {
+        newAnswer = `${row.CorrectPlacement.charAt(1)}${row.CorrectPlacement.charAt(0)}`;
+      }
+      return {
+        grid,
+        clue: row.Soundfile,
+        answer: { cell: newAnswer, oldCell: row.CorrectPlacement || '', glyph: row.Answer || '' }
+      };
+    }
+
+    //=== Utility: convert a number to its English ordinal (1→"1st", 2→"2nd", etc.) ===
+    function getOrdinal(n) {
+      const j = n % 10, k = n % 100;
+      if (k >= 11 && k <= 13) return n + 'th';
+      if (j === 1) return n + 'st';
+      if (j === 2) return n + 'nd';
+      if (j === 3) return n + 'rd';
+      return n + 'th';
+    }
+
+    //=== Experiment Initialization ===
+    function initializeExperiment() {
+      const jsPsych = initJsPsych({
+        on_finish: () => {
+          document.getElementById('jspsych-target').innerHTML =
+            '<pre>' + jsPsych.data.get().csv() + '</pre>';
+        }
+      });
+
+      // Preload assets
+      const imageFiles = [];
+      const audioFiles = [];
+      const allPuzzles = [...window.practicePuzzles, ...window.testPuzzles];
+      allPuzzles.forEach(p => {
+        p.grid.forEach(c => {
+          if (c.glyph) {
+            const url = getGlyphImageUrl(c.glyph);
+            if (!imageFiles.includes(url)) imageFiles.push(url);
+          }
+        });
+        const au = getAudioUrl(p.clue);
+        if (!audioFiles.includes(au)) audioFiles.push(au);
+      });
+
+      const timeline = [];
+
+      // Instruction trial
+      timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `<div class="instruction-box" style="margin-top: -380px;">
+          <p style="font-size: 20px; font-weight: bold;">Now the director is gone. You will still hear instructions to move objects. As before, when you are ready click on this button:</p>
+          <img src="${baseAssetUrl}play_button.png" alt="Play Button" style="height: 180px; vertical-align: middle;" />
+
+          <p style="font-size: 20px; font-weight: bold;">to hear the instruction and move the object you are asked to move.</p>
+
+          <p style="font-size: 20px; font-weight: bold;">Now the instructions will only refer to objects in clear slots. They will not refer to objects in grey slots.</p>
+
+          <p style="font-size: 20px; font-weight: bold;">So you have to ignore the objects in the grey slots.
+          It will be important to take this into account when you follow the instructions. </p>
+
+          <p style="font-size: 20px; font-weight: bold;">You should do this as quickly as possible.
+          Let’s try a practice round!</p>
+          <div class="button-container">
+            <button id="start-practice-btn" class="jspsych-btn"><img src="${baseAssetUrl}next_button.png" alt="Next" style="height:40px;" /></button>
+          </div>
+        </div>`,
+        choices: ['Continue'],
+        button_html: '<button style="display:none;"></button>',
+        on_load: () => {
+          document.getElementById('start-practice-btn').addEventListener('click', () => {
+            document.querySelector('.jspsych-html-button-response-button').click();
+          });
+        }
+      });
+
+      // Preload trial
+      timeline.push({ type: jsPsychPreload, images: [...imageFiles, getDirectorImageUrl(), `${baseAssetUrl}directorsRoom.png`], audio: audioFiles });
+
+      // Practice trials
+      window.practicePuzzles.forEach(puzzle => {
+        timeline.push(createPuzzleTrial(jsPsych, puzzle, true));
+      });
+
+      // Transition
+      timeline.push({
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+    <div class="instruction-box" style="margin-top: -380px;">
+      <p style="font-size: 22px; font-weight: bold;">That's the end of the practice! Let's now start the actual task.</p>
+      <div class="button-container">
+        <button id="start-experiment-btn" class="jspsych-btn"><img src="${baseAssetUrl}next_button.png" alt="Next" style="height:40px;" /></button>
+      </div>
+    </div>
+  `,
+  choices: ['Continue'],
+  button_html: '<button style="display:none;"></button>',
+  on_load: () => {
+    document.getElementById('start-experiment-btn').addEventListener('click', () => {
+      document.querySelector('.jspsych-html-button-response-button').click();
+    });
+  }
+      });
+
+      // → TEST trials: assign ordinal number to each puzzle  
+      let testTrialCount = 0;
+      window.testPuzzles.forEach(puzzle => {
+        testTrialCount++;
+        puzzle.trialNumber = testTrialCount;       // <-- new
+        timeline.push(createPuzzleTrial(jsPsych, puzzle, false));
+      });
+
+      jsPsych.run(timeline);
+    }
+
+    //=== Helper to create a trial object ===
+    function createPuzzleTrial(jsPsych, puzzle, isPractice) {
+      return {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: () => buildPuzzleHTML(puzzle),
+        on_load: () => {
+          setupPuzzleHandlers(jsPsych, puzzle, isPractice);
+          // Fade in from black at the start of each trial
+          const overlay = document.querySelector('.transition-overlay');
+          if (overlay && overlay.classList.contains('active')) {
+            setTimeout(() => {
+              overlay.classList.remove('active');
+            }, 100);
+          }
+        },
+        choices: 'NO_KEYS'
+      };
+    }
+
+    function buildPuzzleHTML(puzzle) {
+      let html = '<div class="transition-overlay"></div><div class="task-container"><div class="grid-container"><div id="grid">';
+      for (let i = 1; i <= 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          const cellId = `${i}${String.fromCharCode(65+j)}`;
+          const cellObj = puzzle.grid.find(c => c.cell === cellId);
+          const cls = cellObj.blocked ? 'grid-cell blocked' : 'grid-cell';
+          html += `<div class="${cls}" data-cell="${cellId}" ondragover="event.preventDefault()" ondrop="handleDrop(event,'${cellId}')"></div>`;
+        }
+      }
+      html += `</div></div>
+        <div class="director-container">
+          <button id="play-audio"><img src="${baseAssetUrl}play_button.png" alt="Play" /></button>
+          <img src="${getDirectorImageUrl()}" class="director-image" alt="Director" />
+        </div>
+        <div id="feedback-container" style="display: none; position: absolute; top: -25%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.3); z-index: 1000;"></div>
+      `;
+      return html;
+    }
+
+    function setupPuzzleHandlers(jsPsych, puzzle, isPractice) {
+      // Place glyphs
+      puzzle.grid.forEach(cellObj => {
+        if (cellObj.glyph) {
+          const img = document.createElement('img');
+          img.src = getGlyphImageUrl(cellObj.glyph);
+          img.id = `glyph-${cellObj.cell}`;
+          img.draggable = true;
+          img.className = 'glyph-image';
+          img.dataset.originalCell = cellObj.cell;
+          img.dataset.currentCell = cellObj.cell;
+          img.addEventListener('dragstart', e => {
+            img.dataset.dragStartTime = Date.now();
+            e.dataTransfer.setData('text/plain', img.id);
+          });
+          document.querySelector(`[data-cell="${cellObj.cell}"]`).appendChild(img);
+        }
+      });
+
+      // Drop handler
+      window.handleDrop = (event, targetCell) => {
+        event.preventDefault();
+        const glyphId = event.dataTransfer.getData('text/plain');
+        const glyphImg = document.getElementById(glyphId);
+        if (!glyphImg) return;
+        const fromCell = glyphImg.dataset.currentCell;
+        if (fromCell === targetCell) return;
+        
+        const originalCell = glyphImg.dataset.originalCell;
+        glyphImg.dataset.currentCell = targetCell;
+        document.querySelector(`[data-cell="${targetCell}"]`).appendChild(glyphImg);
+        
+        const rt = Date.now() - Number(glyphImg.dataset.dragStartTime);
+        const correctObj = puzzle.grid.find(c => c.glyph === puzzle.answer.glyph)?.cell;
+        const isCorrect = correctObj === glyphImg.dataset.originalCell && puzzle.answer.cell === targetCell;
+        jsPsych.data.write({ event: 'glyph_placed', glyph: glyphImg.dataset.originalCell, from: fromCell, to: targetCell, rt, correct: isCorrect });
+
+        // --- NEW: only for real (non‐practice) trials: log RT, correctness and trial# ---
+        console.log(
+          `Trial ${getOrdinal(puzzle.trialNumber)}: ` +
+          `RT=${rt} ms, Correct=${isCorrect}`
+        );
+
+        const fc = document.getElementById('feedback-container');
+        const overlay = document.querySelector('.transition-overlay');
+        
+        if (isPractice) {
+          fc.style.display = 'block';
+          const correctObjectMoved = correctObj === glyphImg.dataset.originalCell;
+          const correctLocationMoved = puzzle.answer.cell === targetCell;
+          
+          if (correctObjectMoved && correctLocationMoved) {
+            // ✅ Case 1: Both object and location are correct
+            fc.innerHTML = '<p style="color: green; font-weight: bold; font-size: 24px;">Correct!</p>';
+            setTimeout(() => { 
+              fc.style.display='none'; 
+              // Activate fade to black transition
+              overlay.classList.add('active');
+              setTimeout(() => jsPsych.finishTrial(), 800);
+            }, 1500);
+          } else {
+            // Handle all incorrect cases
+            if (correctObjectMoved) {
+              // ⚠️ Case 2: Correct object, wrong location
+              fc.innerHTML = `
+                <p style="color: orange; font-weight: bold; font-size: 18px;">
+                  That's the correct object but not the right location.<br>
+                  Listen to the director's instructions again.
+                </p>`;
+            } else if (correctLocationMoved) {
+              // ⚠️ Case 3: Correct location, wrong object
+              fc.innerHTML = `
+                <p style="color: orange; font-weight: bold; font-size: 18px;">
+                  That's the correct location but not the right object.<br>
+                  Listen to the director's instructions again.
+                </p>`;
+            } else {
+              // ❌ Case 4: Both object and location are incorrect
+              fc.innerHTML = `
+                <p style="color: red; font-weight: bold; font-size: 18px;">
+                  That's not correct.<br>
+                  Listen to the director's instructions again.
+                </p>`;
+            }
+            
+            // For all incorrect answers in practice: return the object to its original position
+            setTimeout(() => {
+              fc.style.display = 'none';
+              // Move the object back to its original cell
+              const originalCellElement = document.querySelector(`[data-cell="${originalCell}"]`);
+              if (originalCellElement && glyphImg) {
+                originalCellElement.appendChild(glyphImg);
+                glyphImg.dataset.currentCell = originalCell;
+              }
+            }, 3000);
+          }
+        } else {
+          // For real experiment, transition after any answer
+          setTimeout(() => { 
+            // Activate fade to black transition
+            overlay.classList.add('active');
+            setTimeout(() => jsPsych.finishTrial(), 800);
+          }, isCorrect ? 500 : 1500);
+        }
+      };
+
+      // RESTORE THE WORKING AUDIO PLAYBACK FROM PREVIOUS VERSION
+      const playBtn = document.getElementById('play-audio');
+      if (playBtn) {
+        let buttonClicked = false;
+        
+        // Set timeout for flickering if not clicked
+        const flickerTimeout = setTimeout(() => {
+          if (!buttonClicked) {
+            playBtn.classList.add('flicker-animation');
+            setTimeout(() => {
+              playBtn.classList.remove('flicker-animation');
+            }, 1200);
+          }
+        }, 1500);
+        
+        // Simple, working audio playback implementation from previous version
+        playBtn.addEventListener('click', () => {
+          buttonClicked = true;
+          clearTimeout(flickerTimeout);
+          playBtn.classList.remove('flicker-animation');
+          
+          // Call the existing playClueAudio function
+          playClueAudio(puzzle.clue);
+          jsPsych.data.write({ event: 'audio_played', rt: performance.now() });
+        });
+      }
+
+      // Add walls for edges
+      puzzle.grid.forEach(c => {
+        const div = document.querySelector(`[data-cell="${c.cell}"]`);
+        const row = c.cell[0];
+        const col = parseInt(c.cell[1]);
+        if (row === '1') div.dataset.edge = 'top';
+        if (row === '4') div.dataset.edge = 'bottom';
+        if (col === 1) div.dataset.edge = 'left';
+        if (col === 4) div.dataset.edge = 'right';
+      });
+
+      // Now add walls DOM elements
+      for (let i = 1; i <= 4; i++) {
+        const topCell = document.querySelector(`.grid-cell:nth-child(${i})`);
+        topCell && topCell.appendChild(Object.assign(document.createElement('div'), { className: 'top-wall' }));
+      }
+      for (let i = 4; i <= 16; i += 4) {
+        const rightCell = document.querySelector(`.grid-cell:nth-child(${i})`);
+        rightCell && rightCell.appendChild(Object.assign(document.createElement('div'), { className: 'right-wall' }));
+      }
+    }
+
+    //=== Data Loading & Experiment Start ===
+    document.addEventListener('DOMContentLoaded', () => {
+      Promise.all([
+        fetch(`${spreadsheetsPath}Practice.json`).then(r => r.json()),
+        fetch(`${spreadsheetsPath}Test${conditionIndex}.json`).then(r => r.json())
+      ])
+      .then(([pData, tData]) => {
+        window.practicePuzzles = pData.rows.map(convertRowToPuzzle).filter(x => x);
+        window.testPuzzles = tData.rows.map(convertRowToPuzzle).filter(x => x);
+        initializeExperiment();
+      })
+      .catch(err => {
+        console.error('JSON load error:', err);
+        document.getElementById('jspsych-target').innerHTML =
+          `<div class="instruction-box"><h2>Error Loading Experiment</h2><p>${err.message}</p></div>`;
+      });
+    });
+  </script>
+</head>
+<body>
+  <div id="jspsych-target"></div>
+</body>
+</html>
+
